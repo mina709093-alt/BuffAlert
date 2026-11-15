@@ -1,0 +1,3 @@
+BuffAlert
+글꼴: 마루부리(MaruBuri) Regular/Bold TTF — 네이버(Naver) 배포. 오픈 폰트 라이선스(SIL OFL 1.1)로 알려져 있으며, 재배포 조건은 배포처(hangeul.naver.com)에서 확인하세요.
+알림음(ting.mp3): TotemChain에 들어 있던 파일을 그대로 사용했습니다.
