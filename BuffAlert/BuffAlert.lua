@@ -30,7 +30,17 @@ local lastSound = 0
 local offset = 0
 local needEval = true
 local missingNow = {}
-local lostFlag = {}
+local lostFlag = {}     -- 버프 이름 -> 제거 이벤트를 받은 시각
+local recastAt = {}     -- 버프 이름 -> 내가 그 주문을 마지막으로 쓴 시각
+
+-- 상태 변화 기록 (/ba 로그): 잘못 뜨는 경우 원인 확인용
+local function Log(msg)
+  if not db then return end
+  db.log = db.log or {}
+  local t = date and date("%H:%M:%S") or ""
+  table.insert(db.log, t .. ((InCombatLockdown and InCombatLockdown()) and " [전투] " or " ") .. msg)
+  while #db.log > 40 do table.remove(db.log, 1) end
+end
 
 local function Print(msg)
   if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage("|cff33ff99버프 알림|r " .. msg) end
@@ -169,7 +179,7 @@ local function HasBuffRaw(e)
   end
   if seenCombat[name] then
     missTicks[name] = (missTicks[name] or 0) + 1
-    if missTicks[name] >= 2 then return false end
+    if missTicks[name] >= 3 then return false end
   end
   return nil
 end
@@ -343,6 +353,7 @@ SyncSlots = function()
       b:ClearAllPoints()
       b:SetPoint("TOPLEFT", alerts, "TOPLEFT", (i - 1) * (ICON + 8), 0)
       local sp = SpellTarget(e)
+      e.castName = sp
       if sp then
         b:SetAttribute("type", "macro")
         b:SetAttribute("macrotext", "/cast " .. sp)
@@ -409,20 +420,34 @@ local function Evaluate()
   local missing, lost = {}, false
   for _, e in ipairs(list) do
     local has = HasBuff(e)
+    local raw = has
     local prev = state[e.name]
     if has == nil then
       has = prev
       if has == true and expOf[e.name] and GetTime() >= expOf[e.name] then has = false end
     end
-    if lostFlag[e.name] then
-      -- 제거 이벤트가 먼저 도착한 경우: 직전에 있던 것으로 보고 소리를 냅니다.
-      if has ~= true then has = false prev = true end
-      lostFlag[e.name] = nil
+    local lf = lostFlag[e.name]
+    if lf then
+      local now = GetTime()
+      local rc = recastAt[e.name]
+      if rc and rc >= lf - 2 then
+        -- 다시 쓴 버프가 예전 버프를 밀어낸 것: 사라진 게 아님
+        lostFlag[e.name] = nil
+        if raw == nil then has = true end
+      elseif raw == true then
+        lostFlag[e.name] = nil
+      elseif now - lf >= 0.6 then
+        -- 제거 이벤트 뒤 0.6초 동안 다시 쓴 기록이 없으면 사라진 것으로 봅니다.
+        if raw == nil then has = false prev = true end
+        lostFlag[e.name] = nil
+        Log(e.name .. " 제거 이벤트로 없음 처리")
+      end
     end
     if has == false then
       missing[#missing + 1] = e
       if prev == true then lost = true end
     end
+    if has ~= prev then Log(e.name .. " " .. tostring(prev) .. " -> " .. tostring(has)) end
     state[e.name] = has
   end
   missingNow = missing
@@ -786,12 +811,29 @@ end)
 local function OnAura(info)
   needEval = true
   if type(info) ~= "table" then return end
+  -- 새로 걸린 버프 (값을 읽을 수 있을 때만): 같은 버프면 바로 있음 처리
+  local added = info.addedAuras
+  if type(added) == "table" and not (issecretvalue and issecretvalue(added)) then
+    for _, a in ipairs(added) do
+      local nm, sid, inst = a.name, a.spellId or a.spellID, a.auraInstanceID
+      if not (issecretvalue and ((nm and issecretvalue(nm)) or (sid and issecretvalue(sid)) or (inst and issecretvalue(inst)))) then
+        for _, e in ipairs(List()) do
+          if (nm and nm == e.name) or (sid and e.sid and sid == e.sid) then
+            instOf[e.name] = inst
+            lostFlag[e.name] = nil
+            recastAt[e.name] = GetTime()
+            state[e.name] = true
+          end
+        end
+      end
+    end
+  end
   local rem = info.removedAuraInstanceIDs
   if rem == nil or (issecretvalue and issecretvalue(rem)) then return end
   for _, id in ipairs(rem) do
     for _, e in ipairs(List()) do
       if instOf[e.name] and instOf[e.name] == id then
-        lostFlag[e.name] = true
+        lostFlag[e.name] = GetTime()
         instOf[e.name] = nil
         expOf[e.name] = nil
       end
@@ -799,11 +841,30 @@ local function OnAura(info)
   end
 end
 
+-- 내가 버프 주문을 쓰면 (알림 아이콘 클릭 포함) 전투 중이라도 바로 있음 처리
+local function OnCast(spellID)
+  if not spellID or (issecretvalue and issecretvalue(spellID)) then return end
+  local nm
+  pcall(function() nm = (C_Spell and C_Spell.GetSpellName and C_Spell.GetSpellName(spellID)) or (GetSpellInfo and GetSpellInfo(spellID)) end)
+  if not nm or (issecretvalue and issecretvalue(nm)) then return end
+  for _, e in ipairs(List()) do
+    if nm == e.name or nm == e.castName then
+      recastAt[e.name] = GetTime()
+      lostFlag[e.name] = nil
+      expOf[e.name] = nil
+      if state[e.name] ~= true then Log(e.name .. " 다시 씀 -> 있음") end
+      state[e.name] = true
+      needEval = true
+    end
+  end
+end
+
 driver:RegisterEvent("PLAYER_LOGIN")
+pcall(driver.RegisterUnitEvent, driver, "UNIT_SPELLCAST_SUCCEEDED", "player")
 driver:RegisterEvent("PLAYER_ENTERING_WORLD")
 driver:RegisterEvent("PLAYER_REGEN_ENABLED")
 pcall(driver.RegisterUnitEvent, driver, "UNIT_AURA", "player")
-driver:SetScript("OnEvent", function(_, event, a1, a2)
+driver:SetScript("OnEvent", function(_, event, a1, a2, ...)
   if event == "PLAYER_LOGIN" then
     BuffAlertDB = BuffAlertDB or {}
     db = BuffAlertDB
@@ -819,6 +880,9 @@ driver:SetScript("OnEvent", function(_, event, a1, a2)
     if pendingSync then SyncSlots() end
   elseif event == "UNIT_AURA" and db then
     pcall(OnAura, a2)
+  elseif event == "UNIT_SPELLCAST_SUCCEEDED" and db then
+    local sid = ...
+    pcall(OnCast, sid)
   end
 end)
 
@@ -837,6 +901,9 @@ SlashCmdList["BUFFALERT"] = function(msg)
     for _, e in ipairs(List()) do
       Print(e.name .. " 상태=" .. tostring(state[e.name]) .. " 주문번호=" .. tostring(e.sid) .. " 시전=" .. tostring(SpellTarget(e)))
     end
+  elseif msg == "log" or msg == "로그" then
+    Print("최근 상태 변화 (최대 40줄):")
+    for _, l in ipairs(db.log or {}) do Print("  " .. l) end
   elseif msg == "minimap" then
     db.mmHide = not db.mmHide
     if db.mmHide then mm:Hide() else mm:Show() end

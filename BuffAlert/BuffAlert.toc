@@ -1,9 +1,10 @@
 ## Interface: 16001
 ## Title: 버프 알림 (BuffAlert)
 ## Notes: 내가 쓴 버프를 읽어 두었다가 사라지면 아이콘과 알림음으로 알려줍니다.
-## Version: 0.1.8
+## Version: 0.1.9
 ## Category: 상수팩
 ## SavedVariables: BuffAlertDB, SangsuPackDB
 
 SangsuPack.lua
 BuffAlert.lua
+Changelog.lua

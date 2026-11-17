@@ -1,0 +1,10 @@
+-- 업데이트 내역 (상수팩 업데이트 안내 창에 표시됨). 새 버전이 위로 오게 적습니다.
+if not SangsuPack or not SangsuPack.RegisterChangelog then return end
+
+SangsuPack:RegisterChangelog("BuffAlert", {
+  { ver = "0.1.9",
+    "전투 중에 버프를 다시 쓰면 버프가 걸려 있는데도 알림 아이콘이 뜨던 문제를 고쳤습니다. 내가 그 주문을 쓴 것을 확인하면 전투 중이라도 바로 아이콘을 내립니다.",
+    "알림 아이콘이 안 보일 때는 그 자리를 눌러도 버프가 시전되지 않습니다. (클릭 막이는 그대로 유지)",
+    "/ba 로그 : 최근 상태 변화를 보여 줍니다. 또 잘못 뜨면 이 내용을 보내 주세요.",
+  },
+})
