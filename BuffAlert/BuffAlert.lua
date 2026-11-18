@@ -12,9 +12,16 @@ local PADX, CW = 14, 312
 local ROWS = 9
 local ICON = 48
 
+-- 상수 스타일 색 (Sangsu'sStyle UI 애드온과 같은 색)
 local C_TEXT = { 0.93, 0.94, 0.96 }
-local C_MUTED = { 0.64, 0.68, 0.74 }
-local C_ACCENT = { 0.30, 0.62, 0.78 }
+local C_MUTED = { 0.55, 0.60, 0.63 }
+local C_ACCENT = { 0.063, 0.816, 0.627 }
+local C_BG = { 0.035, 0.055, 0.065 }
+local C_PANEL = { 0.02, 0.035, 0.042 }
+local C_BTN, C_BTN_HI = { 0.055, 0.085, 0.10 }, { 0.08, 0.12, 0.14 }
+local C_SEL, C_SEL_HI = { 0.045, 0.32, 0.26 }, { 0.06, 0.40, 0.32 }
+local C_BTN_EDGE = { 0.20, 0.25, 0.28 }
+local BG_ALPHA = 0.92
 local C_RED = { 0.90, 0.25, 0.22 }
 local FONT_R = "Interface\\AddOns\\BuffAlert\\fonts\\MaruBuri-Regular.ttf"
 local FONT_B = "Interface\\AddOns\\BuffAlert\\fonts\\MaruBuri-Bold.ttf"
@@ -64,16 +71,31 @@ local function FlatButton(parent, text, w, primary, fn)
   b:SetHeight(24)
   b.bg = b:CreateTexture(nil, "BACKGROUND")
   b.bg:SetAllPoints()
-  b.base = primary and C_ACCENT or { 0.20, 0.22, 0.27 }
-  b.hover = primary and { 0.38, 0.70, 0.86 } or { 0.29, 0.32, 0.38 }
+  b.base = primary and C_SEL or C_BTN
+  b.hover = primary and C_SEL_HI or C_BTN_HI
   Solid(b.bg, b.base[1], b.base[2], b.base[3], 1)
+  -- 1px 테두리 (마우스 올리면 강조색)
+  b.edges = {}
+  for i, pt in ipairs({ { "TOPLEFT", "TOPRIGHT" }, { "BOTTOMLEFT", "BOTTOMRIGHT" }, { "TOPLEFT", "BOTTOMLEFT" }, { "TOPRIGHT", "BOTTOMRIGHT" } }) do
+    local t = b:CreateTexture(nil, "BORDER")
+    t:SetPoint(pt[1]); t:SetPoint(pt[2])
+    if i <= 2 then t:SetHeight(1) else t:SetWidth(1) end
+    Solid(t, C_BTN_EDGE[1], C_BTN_EDGE[2], C_BTN_EDGE[3], 1)
+    b.edges[i] = t
+  end
   b.label = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   b.label:SetPoint("CENTER", b, "CENTER", 0, 0)
   SetF(b.label, 12, primary)
   b.label:SetText(text)
   b.label:SetTextColor(primary and 1 or C_TEXT[1], primary and 1 or C_TEXT[2], primary and 1 or C_TEXT[3])
-  b:SetScript("OnEnter", function() Solid(b.bg, b.hover[1], b.hover[2], b.hover[3], 1) end)
-  b:SetScript("OnLeave", function() Solid(b.bg, b.base[1], b.base[2], b.base[3], 1) end)
+  b:SetScript("OnEnter", function()
+    Solid(b.bg, b.hover[1], b.hover[2], b.hover[3], 1)
+    for _, t in ipairs(b.edges) do Solid(t, C_ACCENT[1], C_ACCENT[2], C_ACCENT[3], 1) end
+  end)
+  b:SetScript("OnLeave", function()
+    Solid(b.bg, b.base[1], b.base[2], b.base[3], 1)
+    for _, t in ipairs(b.edges) do Solid(t, C_BTN_EDGE[1], C_BTN_EDGE[2], C_BTN_EDGE[3], 1) end
+  end)
   b:SetScript("OnClick", fn)
   return b
 end
@@ -319,7 +341,7 @@ local function BuildAlerts()
   m:SetScript("OnDragStop", DragStop)
   m.bg = m:CreateTexture(nil, "BACKGROUND")
   m.bg:SetAllPoints()
-  Solid(m.bg, C_ACCENT[1], C_ACCENT[2], C_ACCENT[3], 0.85)
+  Solid(m.bg, C_SEL[1], C_SEL[2], C_SEL[3], 0.9)
   m.t = m:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   m.t:SetPoint("CENTER", m, "CENTER", 0, 0)
   m.t:SetWidth(ICON + 16)
@@ -468,11 +490,12 @@ end
 local function ApplyBg()
   local f = frame
   if not f then return end
+  -- 투명도 0%일 때 상수 스타일 기본 진하기
   local a = 1 - (db.transp or 0) / 100
-  Solid(f.bg, 0.02, 0.02, 0.03, a)
-  for _, e in ipairs(f.edges) do Solid(e, 0.32, 0.35, 0.40, a) end
+  Solid(f.bg, C_BG[1], C_BG[2], C_BG[3], BG_ALPHA * a)
+  for _, e in ipairs(f.edges) do Solid(e, 0, 0, 0, a) end
   Solid(f.accent, C_ACCENT[1], C_ACCENT[2], C_ACCENT[3], a)
-  Solid(f.line, 0.24, 0.27, 0.32, a)
+  Solid(f.line, C_BTN_EDGE[1], C_BTN_EDGE[2], C_BTN_EDGE[3], a)
 end
 
 local function RefreshUI()
@@ -499,15 +522,15 @@ local function RefreshUI()
     end
   end
   if total == 0 then frame.empty:Show() else frame.empty:Hide() end
-  local ON, ONH = { 0.80, 0.50, 0.08 }, { 0.95, 0.62, 0.15 }
-  local OFF, OFFH = { 0.20, 0.22, 0.27 }, { 0.29, 0.32, 0.38 }
+  local ON, ONH = C_SEL, C_SEL_HI
+  local OFF, OFFH = C_BTN, C_BTN_HI
   frame.bSound.label:SetText("알림음 " .. (db.sound ~= false and "켜짐" or "꺼짐"))
   if db.sound ~= false then Recolor(frame.bSound, ON, ONH) else Recolor(frame.bSound, OFF, OFFH) end
   frame.bRepeat.label:SetText("반복 " .. (db.repeatSound and "켜짐" or "꺼짐"))
   if db.repeatSound then Recolor(frame.bRepeat, ON, ONH) else Recolor(frame.bRepeat, OFF, OFFH) end
   frame.bMove.label:SetText(db.unlocked and "아이콘 위치 고정" or "아이콘 위치 이동")
-  if db.unlocked then Recolor(frame.bMove, { 0.80, 0.50, 0.08 }, { 0.95, 0.62, 0.15 })
-  else Recolor(frame.bMove, { 0.20, 0.22, 0.27 }, { 0.29, 0.32, 0.38 }) end
+  if db.unlocked then Recolor(frame.bMove, C_SEL, C_SEL_HI)
+  else Recolor(frame.bMove, C_BTN, C_BTN_HI) end
   frame.tlabel:SetText("투명도 " .. (db.transp or 0) .. "%")
 end
 
@@ -643,7 +666,7 @@ local function BuildFrame()
     row:SetPoint("TOPLEFT", f, "TOPLEFT", PADX, -144 - (i - 1) * 28)
     row.bg = row:CreateTexture(nil, "BACKGROUND")
     row.bg:SetAllPoints()
-    Solid(row.bg, 0.14, 0.16, 0.20, 1)
+    Solid(row.bg, C_PANEL[1], C_PANEL[2], C_PANEL[3], 1)
     row.icon = row:CreateTexture(nil, "ARTWORK")
     row.icon:SetWidth(20)
     row.icon:SetHeight(20)
@@ -712,7 +735,7 @@ local function BuildFrame()
     tr:SetPoint("LEFT", sl, "LEFT", 0, 0)
     tr:SetPoint("RIGHT", sl, "RIGHT", 0, 0)
     tr:SetHeight(4)
-    Solid(tr, 0.28, 0.31, 0.37, 1)
+    Solid(tr, C_BTN_EDGE[1], C_BTN_EDGE[2], C_BTN_EDGE[3], 1)
     local th = sl:CreateTexture(nil, "OVERLAY")
     th:SetWidth(8)
     th:SetHeight(16)

@@ -2,6 +2,9 @@
 if not SangsuPack or not SangsuPack.RegisterChangelog then return end
 
 SangsuPack:RegisterChangelog("BuffAlert", {
+  { ver = "0.1.10",
+    "창 색상을 상수팩 공통 스타일(상수 스타일)로 바꿨습니다. 어두운 청록빛 배경, 1px 테두리, 강조색 #10D0A0. 투명도 0%가 상수 스타일 기본 진하기입니다.",
+  },
   { ver = "0.1.9",
     "전투 중에 버프를 다시 쓰면 버프가 걸려 있는데도 알림 아이콘이 뜨던 문제를 고쳤습니다. 내가 그 주문을 쓴 것을 확인하면 전투 중이라도 바로 아이콘을 내립니다.",
     "알림 아이콘이 안 보일 때는 그 자리를 눌러도 버프가 시전되지 않습니다. (클릭 막이는 그대로 유지)",
