@@ -12,7 +12,7 @@ local PADX, CW = 14, 312
 local ROWS = 9
 local ICON = 48
 
--- 상수 스타일 색 (Sangsu'sStyle UI 애드온과 같은 색)
+-- 상수 스타일 색 (상수팩 공통 색)
 local C_TEXT = { 0.93, 0.94, 0.96 }
 local C_MUTED = { 0.55, 0.60, 0.63 }
 local C_ACCENT = { 0.063, 0.816, 0.627 }
