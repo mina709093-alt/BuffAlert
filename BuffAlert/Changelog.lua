@@ -2,6 +2,9 @@
 if not SangsuPack or not SangsuPack.RegisterChangelog then return end
 
 SangsuPack:RegisterChangelog("BuffAlert", {
+  { ver = "0.2.1",
+    "사망음이 기본으로 켜집니다. 설정창에 사망음 켜기·끄기 버튼과 사망음 듣기 버튼을 넣었습니다.",
+  },
   { ver = "0.2.0",
     "사망음: 캐릭터가 죽으면 소리를 한 번 재생합니다. 기본은 꺼져 있고 /ba 사망음 으로 켜고 끕니다.",
     "/ba 사망음 테스트 : 사망음을 들어 봅니다. /ba 사망음 정지 : 재생 중인 사망음을 멈춥니다.",

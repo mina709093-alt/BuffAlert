@@ -26,7 +26,7 @@ local C_RED = { 0.90, 0.25, 0.22 }
 local FONT_R = "Interface\\AddOns\\BuffAlert\\fonts\\MaruBuri-Regular.ttf"
 local FONT_B = "Interface\\AddOns\\BuffAlert\\fonts\\MaruBuri-Bold.ttf"
 local SOUND_FILE = "Interface\\AddOns\\BuffAlert\\ting.mp3"
-local DEATH_SOUND = "Interface\\AddOns\\BuffAlert\\wakeUp.mp3"   -- 사망음 (기본 꺼짐, /ba 사망음)
+local DEATH_SOUND = "Interface\\AddOns\\BuffAlert\\wakeUp.mp3"   -- 사망음 (기본 켜짐, 설정창 버튼 또는 /ba 사망음)
 
 local db, frame, alerts
 local state = {}        -- 버프 이름 -> true(있음) / false(없음) / nil(모름)
@@ -225,6 +225,20 @@ local function PlayAlert()
     if SOUNDKIT and SOUNDKIT.READY_CHECK then ok = pcall(PlaySound, SOUNDKIT.READY_CHECK, "Master") end
     if not ok then pcall(PlaySound, "ReadyCheck") end
   end
+end
+
+-- 사망음: 캐릭터가 죽으면 한 번 재생 (기본 켜짐, db.deathSound == false면 끔)
+local deathHandle
+local function PlayDeathSound()
+  if not PlaySoundFile then return false end
+  if deathHandle and StopSound then pcall(StopSound, deathHandle) end
+  local ok, willPlay, handle = pcall(PlaySoundFile, DEATH_SOUND, "Master")
+  deathHandle = ok and handle or nil
+  return ok and willPlay and true or false
+end
+local function StopDeathSound()
+  if deathHandle and StopSound then pcall(StopSound, deathHandle) end
+  deathHandle = nil
 end
 
 local pendingSync = false
@@ -529,6 +543,8 @@ local function RefreshUI()
   if db.sound ~= false then Recolor(frame.bSound, ON, ONH) else Recolor(frame.bSound, OFF, OFFH) end
   frame.bRepeat.label:SetText("반복 " .. (db.repeatSound and "켜짐" or "꺼짐"))
   if db.repeatSound then Recolor(frame.bRepeat, ON, ONH) else Recolor(frame.bRepeat, OFF, OFFH) end
+  frame.bDeath.label:SetText("사망음 " .. (db.deathSound ~= false and "켜짐" or "꺼짐"))
+  if db.deathSound ~= false then Recolor(frame.bDeath, ON, ONH) else Recolor(frame.bDeath, OFF, OFFH) end
   frame.bMove.label:SetText(db.unlocked and "아이콘 위치 고정" or "아이콘 위치 이동")
   if db.unlocked then Recolor(frame.bMove, C_SEL, C_SEL_HI)
   else Recolor(frame.bMove, C_BTN, C_BTN_HI) end
@@ -711,16 +727,28 @@ local function BuildFrame()
   f.bRepeat:SetPoint("LEFT", f.bSound, "RIGHT", 6, 0)
   f.bTest = FlatButton(f, "알림음 듣기", 100, false, PlayAlert)
   f.bTest:SetPoint("LEFT", f.bRepeat, "RIGHT", 6, 0)
+  f.bDeath = FlatButton(f, "사망음 켜짐", 154, false, function()
+    db.deathSound = not (db.deathSound ~= false)
+    if db.deathSound == false then StopDeathSound() end
+    RefreshUI()
+  end)
+  f.bDeath:SetPoint("TOPLEFT", f, "TOPLEFT", PADX, by - 30)
+  f.bDeathTest = FlatButton(f, "사망음 듣기", 152, false, function()
+    if not PlayDeathSound() then
+      Print("사망음을 재생하지 못했습니다. 새 음원 파일은 게임을 완전히 껐다 켜야 인식됩니다.")
+    end
+  end)
+  f.bDeathTest:SetPoint("LEFT", f.bDeath, "RIGHT", 6, 0)
   f.bMove = FlatButton(f, "아이콘 위치 이동", 154, false, function()
     db.unlocked = not db.unlocked
     ShowAlerts(missingNow)
     RefreshUI()
   end)
-  f.bMove:SetPoint("TOPLEFT", f, "TOPLEFT", PADX, by - 30)
+  f.bMove:SetPoint("TOPLEFT", f, "TOPLEFT", PADX, by - 60)
   f.bClear = FlatButton(f, "목록 비우기", 152, false, ClearAll)
   f.bClear:SetPoint("LEFT", f.bMove, "RIGHT", 6, 0)
 
-  local ty = by - 66
+  local ty = by - 96
   f.tlabel = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   f.tlabel:SetPoint("TOPLEFT", f, "TOPLEFT", PADX, ty)
   Muted(f.tlabel, 11)
@@ -883,20 +911,6 @@ local function OnCast(spellID)
   end
 end
 
--- 사망음: 캐릭터가 죽으면 한 번 재생 (db.deathSound == true일 때만)
-local deathHandle
-local function PlayDeathSound()
-  if not PlaySoundFile then return false end
-  if deathHandle and StopSound then pcall(StopSound, deathHandle) end
-  local ok, willPlay, handle = pcall(PlaySoundFile, DEATH_SOUND, "Master")
-  deathHandle = ok and handle or nil
-  return ok and willPlay and true or false
-end
-local function StopDeathSound()
-  if deathHandle and StopSound then pcall(StopSound, deathHandle) end
-  deathHandle = nil
-end
-
 driver:RegisterEvent("PLAYER_LOGIN")
 driver:RegisterEvent("PLAYER_DEAD")
 pcall(driver.RegisterUnitEvent, driver, "UNIT_SPELLCAST_SUCCEEDED", "player")
@@ -923,7 +937,7 @@ driver:SetScript("OnEvent", function(_, event, a1, a2, ...)
     local sid = ...
     pcall(OnCast, sid)
   elseif event == "PLAYER_DEAD" and db then
-    if db.deathSound == true then PlayDeathSound() end
+    if db.deathSound ~= false then PlayDeathSound() end
   end
 end)
 
@@ -946,7 +960,8 @@ SlashCmdList["BUFFALERT"] = function(msg)
     Print("최근 상태 변화 (최대 40줄):")
     for _, l in ipairs(db.log or {}) do Print("  " .. l) end
   elseif msg == "사망음" or msg == "death" then
-    db.deathSound = not (db.deathSound == true)
+    db.deathSound = not (db.deathSound ~= false)
+    RefreshUI()
     Print(db.deathSound and "사망음을 켰습니다. 캐릭터가 죽으면 한 번 재생합니다. (들어 보기: /ba 사망음 테스트)" or "사망음을 껐습니다.")
   elseif msg == "사망음 테스트" or msg == "death test" then
     if not PlayDeathSound() then
