@@ -2,6 +2,10 @@
 if not SangsuPack or not SangsuPack.RegisterChangelog then return end
 
 SangsuPack:RegisterChangelog("BuffAlert", {
+  { ver = "0.2.0",
+    "사망음: 캐릭터가 죽으면 소리를 한 번 재생합니다. 기본은 꺼져 있고 /ba 사망음 으로 켜고 끕니다.",
+    "/ba 사망음 테스트 : 사망음을 들어 봅니다. /ba 사망음 정지 : 재생 중인 사망음을 멈춥니다.",
+  },
   { ver = "0.1.10",
     "창 색상을 상수팩 공통 스타일(상수 스타일)로 바꿨습니다. 어두운 청록빛 배경, 1px 테두리, 강조색 #10D0A0. 투명도 0%가 상수 스타일 기본 진하기입니다.",
   },
