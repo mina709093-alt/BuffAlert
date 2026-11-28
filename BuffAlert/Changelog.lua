@@ -2,6 +2,9 @@
 if not SangsuPack or not SangsuPack.RegisterChangelog then return end
 
 SangsuPack:RegisterChangelog("BuffAlert", {
+  { ver = "0.2.2",
+    "사망음 길이를 28초에서 19초로 줄였습니다.",
+  },
   { ver = "0.2.1",
     "사망음이 기본으로 켜집니다. 설정창에 사망음 켜기·끄기 버튼과 사망음 듣기 버튼을 넣었습니다.",
   },
